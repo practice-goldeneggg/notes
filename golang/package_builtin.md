@@ -92,6 +92,56 @@
 
 
 #### netパッケージ
+* `Listen(net, laddr)`関数 - 指定したネットワークをlistenする
+    * `net` - stream-orientedなネットワークを指定可, tcp, tcp4, tcp6, unix, unixpacket, etc
+    * `laddr` - ローカルアドレス, net = tcpなら`:PORT_NUM`形式でポート番号を指定するとか, net = unix ならsocketファイルのパスを指定
+* `Listener`インタフェース - 
+
+
+
+#### net/httpパッケージ
+
+##### クライアントの実装
+
+
+##### サーバーの実装
+* `ListenAndServe(addr string, handler Handler)`関数 - 指定アドレス(ポート)でリクエストを待ち受けるサーバーを起動する, リクエストが来たらhandlerで指定したHandlerFuncを実行する
+    * handlerは基本的にはリクエストパス毎に`Handle``HandleFunc`関数で登録するので、この関数の引数で指定することは稀
+        * handlerがnilの場合、内部では`DefaultServeMux`型が使われている
+* `Handle(pattern string, handler Handler)`関数 - patternで指定したパスへのアクセス時に実行するhandlerを登録する
+* `HandleFunc(pattern string, handler func(ResponseWriter, *Requerst))`関数 - `Handler`と同様にhandlerを登録するが、指定するhandlerは関数のシグニチャが一致していれば型は何でも良い(=Handler型でなくてもよい)
+* `Serve(l net.Listener, handler Handler)`関数 - 指定したListener(前述)へのアクセス時に実行するhandlerを登録する
+
+* `Handler`インタフェース
+    * `ServeHTTP(ResponseWriter, *Request)`メソッド - リクエストが来たら呼ばれる処理, 明示的に呼ぶ事も可能っちゃ可能
+        * `http.HandlerFunc`型 (後述)
+        * `http.ServeMux`型 (後述)
+        * `http.Counter`型
+        * `http.Chan`型
+        * `http.cgi.Handler`型
+        * `http.httputil.ReverseProxy`型
+* `HandlerFunc`型 - `Handler`インタフェースを実装している __関数型__ ,`Handle`関数で指定するhandlerは（基本）この型で定義する, いわゆるHTTPハンドラ
+    * `ServeHTTP(ResponseWriter, *Request)`メソッドを実装している, __functionがメソッドを実装している形で、メソッド内ではこのfunctionが実行されているだけ__
+* `ServeMux`型 - HTTPリクエストのマルチプレクサ。登録されているパターンのリストと各リクエストのURLを比較し、URLと最も一致するパターンに登録されているハンドラを呼び出す
+    * `Handle``HandlerFunc`の両関数は、内部で`DefaultServeMux`を使用している
+* `Server`型 - `Handler`インタフェースを実装している
+
+* チャネルの併用tips
+
+#### net/http/httptestパッケージ
+httpのテストをサポートするパッケージ
+
+
+
+#### net/http/pprofパッケージ
+
+
+#### net/http/fcgiパッケージ
+FastCGIプロトコル実装パッケージ
+
+
+#### syscallパッケージ
+* `Socket(domain, typ, proto)`関数 - 
 
 
 
