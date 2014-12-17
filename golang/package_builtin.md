@@ -113,7 +113,7 @@
 * `Serve(l net.Listener, handler Handler)`関数 - 指定したListener(前述)へのアクセス時に実行するhandlerを登録する
 
 * `Handler`インタフェース
-    * `ServeHTTP(ResponseWriter, *Request)`メソッド - リクエストが来たら呼ばれる処理, 明示的に呼ぶ事も可能っちゃ可能
+    * `ServeHTTP(ResponseWriter, *Request)`メソッド - リクエストが来たら呼ばれる処理, 明示的に呼ぶ事も可能っちゃ可能, __このメソッドを実装した型は`Handle`による処理の登録が可能になる__
         * `http.HandlerFunc`型 (後述)
         * `http.ServeMux`型 (後述)
         * `http.Counter`型
