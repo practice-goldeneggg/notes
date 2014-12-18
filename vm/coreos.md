@@ -13,7 +13,7 @@
 * ベースとなっているのは、GoogleのChrome OS
 * 64bit CPUなら動く
 * ファイルシステムは基本的にRead Only
-* クラスタリングを標準サポート(etcd)
+* __クラスタリングを標準サポート__ (etcd)
     * クラスタ
     * ロール(役割)
     * ノード(nearly equal ホスト)
@@ -38,14 +38,83 @@
 
 
 ## 核となる技術
+[Cluster Architectures](https://coreos.com/docs/cluster-management/setup/cluster-architectures/)
 
-### カーネル
+### etcd
+[Distributed configuration data with etcd](https://coreos.com/blog/distributed-configuration-with-etcd/)
 
+[Getting Started with etcd](https://coreos.com/docs/distributed-configuration/getting-started-with-etcd/)
+
+* __クラスタ・オーケストレーションを行う__ 分散KVS
+    * 設定の共有
+    * service discovery
+* APIを提供
+    * [etcd API Documentation](https://coreos.com/docs/distributed-configuration/etcd-api/)
+    * __実行中のコンテナ内からも叩ける__
+        * CoreOS上で`ip address show`を叩き、NIC=docker0のIPへ向けて叩く
+* Apache Zookeeperにインスパイアされている（らしい）
+* ログの分散・複製には Raft アルゴリズムを採用している
+
+#### Raft
+[Raft](http://thesecretlivesofdata.com/raft/)
+
+* consensus algorithm と呼ばれている
+* 例えば更新操作は...
+    * まず leader と呼ばれるnodeで受ける. commitはされない
+    * leader から follwer と呼ばれるnodeへ内容が展開される 
+    * leaderは follwer からの適用完了通知を待つ
+    * 通知が来たらleader上で変更がcommitされる
+    * leaderはcommitが完了したことをfollwerに通知する
+    * これでいわゆる __consensus__ が完了, この一連の流れを __Log Replication__ と呼んでいる
+        * こう見るとmysqlのレプリケーションぽくも見える
+* leaderの選択 (Term1)
+    * 選択の際のタイムアウト制御設定が2種類ある. __election timeout__ と __heartbeat timeout__
+        * election timeout - follwer が candidate になるまで待つ時間
+            * 150ms - 300ms の間
+    * election timeout発生後、follwer が candidateになり、新しいelectionが始まる
+    * candidateが自身へ投票を行い(Vote Count +1)、他のノードへ Request Vote メッセージを送る
+    * このメッセージを受け取ったノードがまだ未voteであれば、送信元candidateへvoteする
+    * voteが完了したらcandiateノードがelection timeoutをリセットする
+    * candidateがvoteを過半数保持していればleaderになる
+    * leaderになったノードは Append Entries メッセージをfollowerに送信し始める
+        * このメッセージは heartbeat timeout で指定されたインターバルで送信される
+    * このメッセージを受け取ったfollower達は、Append Entries メッセージをleaderへ返信する
+    * このAppend Entriesのやりとりは、1つのfollowerが受信を止めるかcandidateになるまで続く
+    * この一連のleader選択プロセスが完了したら、クラスタの状態（Raftでは __Term__ と呼んでいる）が更新された事になる
+* leaderの停止, 再electionの発生 (Term2)
+    * leaderノードが停止すると、別ノードがleaderになる
+    * もし2つのノードが同時にcandidateになった場合,投票の分割が起こる
+        * voteの過半数を必要とする事で、1つのノードしかleaderにはなれない という事を保証する
+    * 2つのcandidateからの Request Vote が、それぞれ別のノードへ到達した場合, この時点で未到達のvoteはこれ以上何処にも受信されなくなる
+        * Node CはAからの、DはBからのを受信 といったケース
+    * こうなった場合は（仕方ないので）再投票が行われ、leaderを選出する
+* log replication
+    * leaderが決まると、他ノードへ全変更履歴をreplicateする事が必要になる
+    * heartbeatに使用されていたのと同じ Append Entries メッセージを使って完了される
+    * クライアントからleaderに変更処理が届くと...
+        * 次回のheartbeatでは更新後の内容がfollwerに送信される
+        * follwerの過半数がこれを受理したら、変更がcommitされる
+        * クライアントに結果が返信される
+    * Raftでは、ネットワークパーティションの表面?(face)で一貫性を保つことも可能
+    * 例えば、現状1パーティションで構成されているノード群を2パーティションに分割してみる
+        * 分割前leaderだったノードが所属しているパーティションでは、引き続きそのleaderが新leaderも務める
+        * 逆に分割前leaderが所属していないパーティションでは、新たなleader選出プロセスが行われる
+    * クライアントが1つ増えた場合
+        * 一方のクライアントが __更新受信後にleaderがfollowerの過半数のheartbeatを得られないパーティション__ に変更処理を投げると、 __その変更はcommitされない__
+        * もう一方で __leaderがfollowerの過半数のheartbeatを得られるパーティション__ に変更処理を投げると、 __その変更はcommitされる__
+    * こうして各パーティションで内容齟齬がある状態で、逆にパーティションを統合してみる
+        * commitされなかった側のleader は、より優先度の高いelection termを参照し,step downする
+        * step down後に、そのleaderに所属するノードはcommitされてない変更をrollbackし、新leader(=commitされた側のleader)のlogに合わせる
+        * こうしてクラスタ間のログ一貫性を保つ
 
 ### docker
+[Getting Started with docker](https://coreos.com/docs/launching-containers/building/getting-started-with-docker/)
+
 * コンテナ
 * アプリは基本的にDocker上で起動, ホストOSとの分離（これによって管理コスト削減）
     * ポータビリティ確保
+* CoreOS立ち上げた時点でdockerサービスが起動してる
+    * docker hubのコンテナ使いたかったら`docker pull`で即可能
 
 #### Rocket
 * ___Rocket___
@@ -55,19 +124,36 @@
 * __コンテナを1つのUnitとして起動させる__ のがCoreOS
 
 
-### etcd
-* __クラスタ・オーケストレーションを行う__ 分散KVS
 
 ### fleet
-* クラスタノード管理
+[Process Management with Fleet](https://coreos.com/docs/quickstart/#process-management-with-fleet)
+
+* クラスタノード群を管理する為の __init system__
+    * systemdがベース
 * fleet = etcd + systemd + job scheduling
 * __複数ホストへサービスを分散デプロイ__
     * 管理コスト削減, 耐障害性
+* dockerコンテナのライフサイクル管理
 * フェールオーバー
 * SSHログイン
 * ジャーナルログの確認
 
+#### ロール
+* worker
+
+#### ユーティリティコマンド fleetctl
+* `fleetctl load SERVICE`
+* `fleetctl start SERVICE`
+* `fleetctl status SERVICE`
+* `fleetctl destroy SERVICE`
+
+
+### カーネル
+
+
 ### cloud-config
+[Customize with Cloud-Config](https://coreos.com/docs/cluster-management/setup/cloudinit-cloud-config/)
+
 * __クラスタ全体の__ 構成管理
 * 設定ファイル = cloud-config (yaml) = `user-data.yml`
     * 先頭行が`#cloud-config`で始まるyamlファイルに起動時の設定を記述
@@ -80,6 +166,7 @@
 coreos:
   # etcdの設定を行うセクション
   etcd:
+    # discoveryをetcdに任せる為のトークン(ユニークなURL)をセットする。discoveryサーバ？を自前で用意することも出来るらしい
     # generate a new token for each unique cluster from https://discovery.etcd.io/new
     # WARNING: replace each time you 'vagrant destroy'
     #discovery: https://discovery.etcd.io/<token>
@@ -192,6 +279,8 @@ Vagrant.configure("2") do |config|
     config.vm.define vm_name = "core-%02d" % i do |config|
       config.vm.hostname = vm_name
 
+      #-- シリアルロギング？が有効な場合の処理
+      #-- （ファイルを介してUSB接続etcを行えるようにしたいってこと？）
       if $enable_serial_logging
         logdir = File.join(File.dirname(__FILE__), "log")
         FileUtils.mkdir_p(logdir)
@@ -207,12 +296,15 @@ Vagrant.configure("2") do |config|
         end
 
         config.vm.provider :virtualbox do |vb, override|
+          #-- "--uart<1-N> off|<I/O base> <IRQ>" 仮想マシンのシリアルポート設定
           vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
+          #-- "--uartmode<1-N> <arg>" ホストマシンに与えられた仮想シリアルポートを接続する方法を制御します。（事前に--uartXオプションで設定をしておく必要があり
           vb.customize ["modifyvm", :id, "--uartmode1", serialFile]
         end
       end
 
       if $expose_docker_tcp
+        #-- ホストマシンからCore OS内のdocker apiアクセスを行うためのport forward
         config.vm.network "forwarded_port", guest: 2375, host: ($expose_docker_tcp + i - 1), auto_correct: true
       end
 
@@ -220,12 +312,14 @@ Vagrant.configure("2") do |config|
         vb.gui = $vb_gui
       end
 
+      #-- スペックの設定
       config.vm.provider :virtualbox do |vb|
         vb.gui = $vb_gui
         vb.memory = $vb_memory
         vb.cpus = $vb_cpus
       end
 
+      #-- ホストオンリーネットワーク設定
       #ip = "192.168.56.#{i+500}"
       ip = "172.17.8.#{i+200}"
       config.vm.network :private_network, ip: ip
@@ -243,13 +337,45 @@ Vagrant.configure("2") do |config|
 end
 ```
 
-
-
-
 * __デフォルトでは `/vagrant` へのディレクトリ共有は行われない__
 
+### etcdを試す
+
+#### service discovery
+平たく言うと「利用可能なサービス（ここではノード）を通知する」為の仕組み
+
+[Service Discovery with etcd](https://coreos.com/docs/quickstart/#service-discovery-with-etcd)
+
+* 全ての実行中のCoreOSノードにetcdデータストアが展開される
+* 各appコンテナはproxyコンテナに自分自身の存在を知らせる
+    * proxyコンテナはトラフィックを受信すべきマシンの自動検知を担う
+* アプリにserivice discoveryの仕組みを構築する事により、マシン追加やサービスのスケールをシームレスに(違和感なく)実現する
+* https://discovery.etcd.io/new にアクセスしてトークンを取得し、`cloud-config`に設定する
+    * ___vagrant使用時は、destroyの度にトークンを取り直す必要あり___
+* CoreOSマシン内から(ローカルの)etcd APIの動作確認
+    * `curl -L http://127.0.0.1:4001/v1/keys/message -d value="Hello world"` `{"action":"set","key":"/message","prevValue":"Hello world","value":"Hello world","index":12426}`
+* コンテナ内から母艦CoreOSへのetcd API実行
+    * [Reading and Writing from Inside a Container](https://coreos.com/docs/distributed-configuration/getting-started-with-etcd/#reading-and-writing-from-inside-a-container)
+    * `ip address show`で __NIC=docker0__ のIPアドレスへ向けて叩く
+
+    ```
+    4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN
+        link/ether 56:84:7a:fe:97:99 brd ff:ff:ff:ff:ff:ff
+        inet 10.1.42.1/16 scope global docker0
+           valid_lft forever preferred_lft forever
+        inet6 fe80::5484:7aff:fefe:9799/64 scope link
+           valid_lft forever preferred_lft forever
+    ```
+    ```
+    curl -L http://10.1.42.1:4001/v2/keys/
+    {"action":"get","node":{"key":"/","dir":true,"nodes":[{"key":"/coreos.com","dir":true,"modifiedIndex":9,"createdIndex":9},{"key":"/message","value":"Hello world","modifiedIndex":12426,"createdIndex":12426}]}}
+    ```
 
 
+### (小さい)クラスタを試す with etcd
+[Small Cluster](https://coreos.com/docs/cluster-management/setup/cluster-architectures/#small-cluster)
+
+* __3 - 9 ノード__ が目安
 
 
 ## 用途考察
@@ -288,6 +414,10 @@ end
         * Data Volumeの変更はコンテナのイメージには含まれない
     * Docker公式には Data Volume Container を推奨している
         * "複数のコンテナ間で共有したい永続的なデータや非永続的なコンテナから参照したい永続的なデータは Data Volume Container と呼ばれるコンテナを作成して、そのコンテナからデータをマウントするのが良い"
-    * => そこで  __Data-only container pattern__
+    * => そこで __Data-only container pattern__
         * [Docker でデータのポータビリティをあげ永続化しよう - Qiita](http://qiita.com/mopemope/items/b05ff7f603a5ad74bf55)
     * （ホントにポータビリティ実現できてるかイマイチ理解が怪しいのでもうちょい調べる）
+
+### 課題
+* etcd自体の稼働監視と障害復旧
+* fleet自体の稼働監視と障害復旧
