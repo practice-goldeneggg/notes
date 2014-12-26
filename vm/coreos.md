@@ -206,18 +206,21 @@ coreos:
 
 
 ## vagrantで使う
+[Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/)
+
+
 ざっくり試す流れはこう
 * [coreos/coreos-vagrant](https://github.com/coreos/coreos-vagrant)をcloneしてきて、
 * `config.rb`をsampleを参考に作成し、
-* `user-data`をsampleを参考に作成し、
-* vagrant upする
+* `user-data`([Cloud-Config](https://coreos.com/docs/running-coreos/platforms/vagrant/#cloud-config))をsampleを参考に作成し、
+* vagrant upしcoreosを指定インスタンス数で起動
 
 ### 公式リポジトリのファイル構成
 * `Vagrantfile`
 * `config.rb.sample`
 * `user-data.sample`
 
-### 何をやってるかもう少し詳細に見てみる
+#### 何をやってるかもう少し詳細に見てみる
 * Vagrantfile
 
 ```ruby
@@ -324,6 +327,8 @@ Vagrant.configure("2") do |config|
       ip = "172.17.8.#{i+200}"
       config.vm.network :private_network, ip: ip
 
+      #-- NFSによるファイル共有(要permission)
+      #--- "/vagrant" なディレクトリマウントはcoreos-vagrantでは行われない
       # Uncomment below to enable NFS for sharing the host machine into the coreos-vagrant VM.
       #config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp']
 
@@ -337,14 +342,50 @@ Vagrant.configure("2") do |config|
 end
 ```
 
+### 試す - vagrantでcoreosインスタンスの立ち上げまで
+
 * __デフォルトでは `/vagrant` へのディレクトリ共有は行われない__
+* ひとまず `num_instances = 3`で試してみる
 
-### etcdを試す
+```
+$ vagrant up
+```
 
-#### service discovery
-平たく言うと「利用可能なサービス（ここではノード）を通知する」為の仕組み
+* 起動中のvm一覧を確認する
+    * vm一覧の確認は`vagrant-global-status`プラグインで
 
+```
+$ vagrant plugin install vagrant-global-status
+$ vagrant global-status -a
+(なんか何も表示されないけど、なんでじゃろ)
+```
+
+* etcd, fleetプロセスが上がっている事を確認する
+
+```
+$ for v in $(vagrant status | grep core | awk '{print $1}'); do echo "=== $v" && vagrant ssh -c 'pgrep -l -f "(etcd|fleet)"' $v; done
+
+
+=== core-01
+593 etcd
+599 fleetd
+Connection to 127.0.0.1 closed.
+=== core-02
+844 etcd
+850 fleetd
+Connection to 127.0.0.1 closed.
+=== core-03
+853 etcd
+858 fleetd
+Connection to 127.0.0.1 closed.
+```
+
+### etcd で service discovery
+
+#### service discovery とは
 [Service Discovery with etcd](https://coreos.com/docs/quickstart/#service-discovery-with-etcd)
+
+平たく言うと「利用可能なサービス（ここではノード）を通知する」為の仕組み
 
 * 全ての実行中のCoreOSノードにetcdデータストアが展開される
 * 各appコンテナはproxyコンテナに自分自身の存在を知らせる
@@ -354,6 +395,7 @@ end
     * ___vagrant使用時は、destroyの度にトークンを取り直す必要あり___
 * CoreOSマシン内から(ローカルの)etcd APIの動作確認
     * `curl -L http://127.0.0.1:4001/v1/keys/message -d value="Hello world"` `{"action":"set","key":"/message","prevValue":"Hello world","value":"Hello world","index":12426}`
+    * [etcd API Documentation](https://coreos.com/docs/distributed-configuration/etcd-api/)
 * コンテナ内から母艦CoreOSへのetcd API実行
     * [Reading and Writing from Inside a Container](https://coreos.com/docs/distributed-configuration/getting-started-with-etcd/#reading-and-writing-from-inside-a-container)
     * `ip address show`で __NIC=docker0__ のIPアドレスへ向けて叩く
@@ -371,11 +413,73 @@ end
     {"action":"get","node":{"key":"/","dir":true,"nodes":[{"key":"/coreos.com","dir":true,"modifiedIndex":9,"createdIndex":9},{"key":"/message","value":"Hello world","modifiedIndex":12426,"createdIndex":12426}]}}
     ```
 
-
-### (小さい)クラスタを試す with etcd
+#### 試す - (小さい)クラスタをetcdで
 [Small Cluster](https://coreos.com/docs/cluster-management/setup/cluster-architectures/#small-cluster)
 
-* __3 - 9 ノード__ が目安
+[Clustering Machines](https://coreos.com/docs/cluster-management/setup/cluster-discovery/)
+
+[Clustering CoreOS with Vagrant](https://coreos.com/blog/coreos-clustering-with-vagrant/)
+
+
+* __3 - 9 ノード__ が目安, とりあえず3ノードで
+* https://discovery.etcd.io で新規tokenを取得する
+    * etcdはクラスタリングに __etcd discovery URL__ を使っていて、このURL内に一意なtokenを含んでいる
+
+```
+$ curl https://discovery.etcd.io/new
+https://discovery.etcd.io/HASH
+```
+
+* `cloud-config`に取得したtokenを記述する
+
+```
+$ vi user-data
+
+coreos:
+  etcd:
+    discovery: https://discovery.etcd.io/HASH
+```
+
+* vagrant起動or再起動する
+
+```
+$ vagrant reload --provision
+```
+
+* 認証エージェントにvagrant用の鍵を追加し、__ホストマシン=>任意のcoreos vm__, __coreos vm X => coreos vm Y__ 間のssh接続をノーパスで行えるようにする
+
+```
+$ ssh-add ~/.vagrant.d/insecure_private_key
+Identity added: /Users/CoreOS/.vagrant.d/insecure_private_key (/Users/CoreOS/.vagrant.d/insecure_private_key)
+
+$ vagrant ssh core-01 -- -A
+CoreOS alpha (540.0.0)
+core@core-01 ~ $
+```
+
+* クラスタリングできてるか確認 => 何か出来てないぞ
+
+```
+core@core-01 ~ $ fleetctl list-machines
+MACHINE         IP              METADATA
+2a457965...     172.17.8.201    -
+```
+
+
+* データのset,getが各ノード間で連携されている事を確認
+
+```
+# どこぞのホストで
+$ curl -L http://127.0.0.1:4001/v1/keys/message -d value="Aho world"
+
+# 各ホストで
+
+(あれ、どこのホストからgetしても同じ内容が取得できるってもんでもないの？)
+```
+
+
+
+
 
 
 ## 用途考察
