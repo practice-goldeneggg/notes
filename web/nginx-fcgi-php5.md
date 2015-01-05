@@ -168,6 +168,7 @@ server {
 * [nginx連載4回目: nginxの設定、その2 - バーチャルサーバの設定 - インフラエンジニアway - Powered by HEARTBEATS](http://heartbeats.jp/hbblog/2012/04/nginx04.html)
 
 ## FastCGI
+___php5-fpm入れるんならこれ不要かも___
 
 ### インストール
 (詳細は略, apt-get OR src)
@@ -177,9 +178,10 @@ $ apt-get install spawn-fcgi
 ```
 
 ### 設定
+(TODO, 不要かも)
 
 
-## PHP5 (5.5)
+## php5-fpm (5.5)
 
 ### インストール
 * 最低限必要なパッケージ（が何か？）だけをまず入れる
@@ -187,43 +189,83 @@ $ apt-get install spawn-fcgi
         * FPM = FastCGI Process Manager
 
 ```
-$ apt-get install php5-fpm
+$ apt-get install php5 php5-fpm
 ```
 
-### 設定(php5自体)
+### 設定
+* `cgi.fix_pathinfo=1`はセキュアじゃないので0に
+
+```
+$ sudo vi /etc/php5/fpm/php.ini
+
+cgi.fix_pathinfo=0
+
+$ sudo /etc/init.d/php5-fpm restart
+```
 
 
-### 設定(nginx + fastcgi連携)
+## nginx + php5-fpm連携
 * 設定すべき項目候補
-    * `worker_processes`
-    * `keepalive_timeout`
-
-* 例
+    * `fastcgi_XXX`
+* __"FCGIに関するすべての設定は1つのファイルにまとめた上でそのファイルをインポートするようにお勧めします"__
+* 連携を行う仮想ホスト設定を`/etc/nginx/sites-available/HOST_NAME.conf`に作成
+    * document rootはnginxのデフォルトの下に1階層subdirを掘る = `/usr/share/nginx/html/HOST_NAME/`
 
 ```nginx
-location ~ \.php$ {
-  include /etc/nginx/fcgi_params;
-  fastcgi_pass  127.0.0.1:9000;
+server {
+    listen 80;
+
+    root /usr/share/nginx/html/hogefpm.localdomain;
+    index index.php index.html index.htm;
+
+    server_name hogefpm.localdomain;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php5-fpm.sock; # 実行中のFastCGIプロセスをNginxに接続する, "IP:PORT"形式も可。nginxとphp-fpmを別サーバに分散させる場合とか(複数台指定可能？）。1台完結ならsockで良い
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
 }
 ```
 
-#### fastcgi
-nginx.conf
+* 作成した仮想ホスト設定を`/etc/nginx/sites-enable`へシムリンク張る
+    * `nginx.conf`で`include /etc/nginx/sites-enable/*;`してるから、 「直接いじるのは`sites-available`下、その後`sites-enable`へシムリンクを張る」という例を多く見るけど、これが流儀？
 
-* __"FCGIに関するすべての設定は1つのファイルにまとめた上でそのファイルをインポートするようにお勧めします"__
-* 設定すべき項目候補
-    * `location`
-        * `include`
-        * `fastcgi_pass`
-        * `fastcgi_index`
-        * `fastcgi_param`
+```
+$ ln -s /etc/nginx/sites-available/HOST_NAME.conf /etc/nginx/sites-enable
+```
 
-#### キャッシュ
+* document root `/usr/share/nginx/html/hogefpm.localdomain` に`index.php`を置く
 
+```php
+<?php
+  phpinfo();
+```
 
-#### rewrite
-* `.php`と拡張子剥き出しURLでアクセス受けるのはアレ ってのをnginx+phpの場合どうするのがベターか？
-    * 使用するphpフレームワークのルーティング機能にも依存する？
+### 動作確認 using virtualbox
+* `local machine -> (port forward) -> vm running nginx + php5-fpm`という構成での例
+* local machineのhostsに、nginxで設定したホスト名をマッピング
+
+```
+$ sudo vi /etc/hosts
+
+<IP ADDRESSS> hogefpm.localdomain
+```
+
+* ブラウザで`http://hogefpm.localdomain/index.php`へアクセスしてphpinfoが閲覧できることを確認
 
 
 ### initスクリプト
