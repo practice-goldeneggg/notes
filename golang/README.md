@@ -14,6 +14,7 @@
 * [Gocon 2014春](gocon2014.md)
 
 * [OAuth](oauth.md)
+* [go generate(>=1.4)](gogenerate.md)
 
 ## tips
 * [Go net/httpパッケージの概要とHTTPクライアント実装例 - Qiita](http://qiita.com/jpshadowapps/items/463b2623209479adcd88)
