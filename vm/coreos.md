@@ -1,6 +1,9 @@
 # CoreOS
 [Documentation](https://coreos.com/docs/)
 
+[An Introduction to CoreOS System Components | DigitalOcean](https://www.digitalocean.com/community/tutorials/an-introduction-to-coreos-system-components)
+
+
 ## これは何？
 * サーバー用途向け軽量OS
 * 仮想化コンテナを大規模に運用することに特化したLinuxOS, __Dockerに特化したOS__
@@ -40,14 +43,27 @@
 ## 核となる技術
 [Cluster Architectures](https://coreos.com/docs/cluster-management/setup/cluster-architectures/)
 
-### etcd
+### docker
+[Getting Started with docker](https://coreos.com/docs/launching-containers/building/getting-started-with-docker/)
+
+* コンテナ
+* アプリは基本的にDocker上で起動, ホストOSとの分離（これによって管理コスト削減）
+    * ポータビリティ確保
+* CoreOS立ち上げた時点でdockerサービスが起動してる
+    * docker hubのコンテナ使いたかったら`docker pull`で即可能
+
+#### Rocket
+* ___Rocket___
+
+
+### etcd - Cluster Management
 [Distributed configuration data with etcd](https://coreos.com/blog/distributed-configuration-with-etcd/)
 
 [Getting Started with etcd](https://coreos.com/docs/distributed-configuration/getting-started-with-etcd/)
 
 * __クラスタ・オーケストレーションを行う__ 分散KVS
     * 設定の共有
-    * service discovery
+    * service discovery("サービスの発見": 何処で・どんなサービス(コンテナ)が動いているかを知っている)
 * APIを提供
     * [etcd API Documentation](https://coreos.com/docs/distributed-configuration/etcd-api/)
     * __実行中のコンテナ内からも叩ける__
@@ -107,25 +123,11 @@
         * step down後に、そのleaderに所属するノードはcommitされてない変更をrollbackし、新leader(=commitされた側のleader)のlogに合わせる
         * こうしてクラスタ間のログ一貫性を保つ
 
-### docker
-[Getting Started with docker](https://coreos.com/docs/launching-containers/building/getting-started-with-docker/)
-
-* コンテナ
-* アプリは基本的にDocker上で起動, ホストOSとの分離（これによって管理コスト削減）
-    * ポータビリティ確保
-* CoreOS立ち上げた時点でdockerサービスが起動してる
-    * docker hubのコンテナ使いたかったら`docker pull`で即可能
-
-#### Rocket
-* ___Rocket___
-
-
 ### systemd
 * __コンテナを1つのUnitとして起動させる__ のがCoreOS
 
 
-
-### fleet
+### fleet - Launching Containers
 [Process Management with Fleet](https://coreos.com/docs/quickstart/#process-management-with-fleet)
 
 * クラスタノード群を管理する為の __init system__
@@ -146,6 +148,7 @@
 * `fleetctl start SERVICE`
 * `fleetctl status SERVICE`
 * `fleetctl destroy SERVICE`
+* `fleetctl list-machines`
 
 
 ### カーネル
@@ -330,6 +333,7 @@ Vagrant.configure("2") do |config|
       #-- NFSによるファイル共有(要permission)
       #--- "/vagrant" なディレクトリマウントはcoreos-vagrantでは行われない
       # Uncomment below to enable NFS for sharing the host machine into the coreos-vagrant VM.
+      #--- HOST側は . から任意のディレクトリに書き換え
       #config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp']
 
       if File.exist?(CLOUD_CONFIG_PATH)
@@ -472,13 +476,11 @@ MACHINE         IP              METADATA
 ```
 # どこぞのホストで
 $ curl -L http://127.0.0.1:4001/v1/keys/message -d value="Aho world"
+{"action":"set","key":"/message","value":"Aho world","newKey":true,"index":106}
 
 # 各ホストで
 
 ```
-
-
-
 
 
 
