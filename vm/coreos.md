@@ -417,7 +417,7 @@ Connection to 127.0.0.1 closed.
     {"action":"get","node":{"key":"/","dir":true,"nodes":[{"key":"/coreos.com","dir":true,"modifiedIndex":9,"createdIndex":9},{"key":"/message","value":"Hello world","modifiedIndex":12426,"createdIndex":12426}]}}
     ```
 
-#### 試す - (小さい)クラスタをetcdで
+#### 試す - (小さい)クラスタを
 [Small Cluster](https://coreos.com/docs/cluster-management/setup/cluster-architectures/#small-cluster)
 
 [Clustering Machines](https://coreos.com/docs/cluster-management/setup/cluster-discovery/)
@@ -469,6 +469,16 @@ MACHINE         IP              METADATA
 2a4...         172.17.8.201    -
 2a5...         172.17.8.202    -
 2a6...         172.17.8.203    -
+```
+
+* こんなエラーが出る時がある。 __`vagrant destroy`した後に https://discovery.etcd.io/new のトークンを再取得しないとダメなんだがそれが漏れてる__ というケースがほとんど
+
+```
+core@core-01 ~ $ fleetctl list-machines
+2015/01/19 03:20:34 INFO client.go:291: Failed getting response from http://127.0.0.1:4001/: dial tcp 127.0.0.1:4001: connection refused
+2015/01/19 03:20:34 ERROR client.go:213: Unable to get result for {Get /_coreos.com/fleet/machines}, retrying in 100ms
+2015/01/19 03:20:34 INFO client.go:291: Failed getting response from http://127.0.0.1:4001/: dial tcp 127.0.0.1:4001: connection refused
+2015/01/19 03:20:34 ERROR client.go:213: Unable to get result for {Get /_coreos.com/fleet/machines}, retrying in 200ms
 ```
 
 * データのset,getが各ノード間で連携されている事を確認
@@ -527,3 +537,5 @@ $ curl -L http://127.0.0.1:4001/v1/keys/message -d value="Aho world"
 ### 課題
 * etcd自体の稼働監視と障害復旧
 * fleet自体の稼働監視と障害復旧
+* cloud-config作ってvagrant upしてvagrant ssh CLUSTER する流れがビミョーにメンドイ
+    * vagrant destroy の後にdiscovery token再取得しないとダメなところとか
