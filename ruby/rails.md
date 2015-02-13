@@ -65,10 +65,17 @@ ___railsでデファクトなAPサーバーって何なのか調べる___
     * `errors`というオブジェクトにエラー情報が保存される
         * `full_messages`メソッドでメッセージだけを確認可能
         * が、これはActiveRecordオブジェクト経由での失敗時。クラスメソッドを呼んで失敗した場合は何処にも保存されない
+* `rails g model`はどういう時に行うもの？
+    * 逆にどういう時なら`rails g scaffold`でも良いのか？
+
+### routeとController
+* [パー本 p.69] `rails g model``rails g controller`した後に「ルーティング情報を削除してから定義」みたいな事書いてるけど、削除対象になるような記述が最初から無かった
+
 
 ### その他
 * デフォルトの`.gitignore`、何でlogディレクトリをignoreしてないの？
     * `/log/*`になってるからっぽい。先頭の `/`が余計
+    * railsのプロジェクトをgit commitするとき、rails newでデフォルト生成される`.gitignore`だけiginoreすりゃOK？
 
 ## こんなツールが欲しい系
 * プロジェクト成果物のメトリクスを取るツール。モデル数とかビュー数とかetc
