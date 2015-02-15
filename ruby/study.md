@@ -131,3 +131,40 @@
             * `!`で終わるメソッドは特殊な意味を持つ
             * __逆に`!`で終わらないメソッドは、jsonのキーとして扱われる
         * rubyのコードがそのまま書ける
+
+#### 2015-02-15
+* `rails new -T`オプション - `Test::Unit`ファイル群の生成をスキップする
+    * RSpec使いたいときはコレ
+
+##### OAuth(twitter)認証を導入する
+* __`lvm.me` 127.0.0.1を指すドメイン__
+* OmniAuth というgemを使う, 認証フレームワーク のようなgem
+    * どのサービスを使った認証を利用するか？は別gemになってる(omniauth-twitter)
+    * __`Gemfile`にgemを追記して`bin/bundle`する__
+    * `config/secrets.yml`にtoken等を追記
+    * `config/initializers/omniauth.rb`を作成
+* twitterログイン ボタンを画面に追加
+* 一旦rackを終了して再起動して上記ボタンへアクセス（`/auth/twitter`）
+    * この時点ではcallbackが無いのでエラー
+* ログイン兼ユーザ登録のコントローラを作成
+    * `request.env['omniauth.auth'])`という変数にユーザ情報やアクセストークンが格納されている
+
+##### ActiveRecord
+* `find_or_create_by`メソッド
+
+##### Controller
+* `helper_method METHODNAME` でControllerのメソッドをヘルパーとして使う
+    * => view内でもこのメソッドが呼べる
+
+##### View
+* トップページを独自画面にカスタマイズする
+    * `rails g controller welcome index`
+    * `config/route.rb`で`root`メソッドで定義する `root to: 'welcome#index'`
+* bootstrapを導入する
+    * 落としてきて`vendor/assets`配下へ
+    * asset pipiline追加
+        * `app/assets/{javascripts,stylesheets}/application.{js,css}`
+    * layout(例えばヘッダ)に適用してみる
+        * `app/views/layouts/application.html.erb`
+* `flash[:notice]``<% if flash[:notice]` 文 - flashメッセージを表示する
+
