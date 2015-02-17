@@ -21,22 +21,23 @@
         * fooID + barID がPKになるTBL
         * 別TBL独自のID がPKになるTBL __***こっちっぽい***__
             * __この場合削除は物理？論理？__
-    * `bin/rails g scaffold MODELNAME COLUMN:TYPE...`
+    * `bin/rails g {scaffold,model,resource,etc...} MODELNAME COLUMN:TYPE...`
         * `db/migrate`ディレクトリにmigrationファイルが生成される
         * テーブル名は `MODELNAMEs` とモデル名に s を付けたもの
+        * `app/model`下にモデルクラスが作成される
         * てか何か scaffold が固まって動かなくなり始めた
             * [AWS(EC2)+Rails+MySQLでrails generate が動かない？ - To create, To entertain](http://tkoyama1988.hatenablog.com/entry/2014/06/08/192614)
             * [【Ruby On Rails】　「rails generate」が動かない | approad](http://app.road.jp.net/?p=1679)
             * `spring`が悪さしてたっぽい（ __TODO springって何ぞやから詳しく調べる__ )
                 * `bin/spring stop` -> `bin/spring` したらOK
-        * モデルを作る - `rails g model MODELNAME COLUMN:TYPE...`
-            * `app/model`下にモデルクラスが作成される
+        * migrationファイルに必要に応じてindexや制約(null制約とか)を追加する
     * `bin/rake db:create`
         * DBを作成するんだと思うんだけど、何か`db/development.sqlite3 already exists`って出た
             * __このrakeタスクで何が実行されてるのか詳しく調べる__
     * `bin/rake db:migrate`
     * `sqlite3 db/development.sqlite3` <- DB確認
     * `bin/rake db:migrate:status` <- migration適用/未適用の確認
+    * `app/model/MODEL.rb`に必要に応じてバリデーションやビジネスロジックメソッド等を追加する
 * ビューをbootstrapとかで味気有るものにする
     * 公式サイトから落としてきて`vendor/assets/{stylesheets,javascripts}`配下へ展開
     * 展開したファイルを asset pipeline のリストに追加
@@ -49,7 +50,119 @@
 
 ## 逆引き
 デフォルト環境 = WEBrick(AP) + SQLite(DB)
-___railsでデファクトなAPサーバーって何なのか調べる___
+__railsでデファクトなAPサーバーって何なのか調べる__
+
+### 基本要素
+
+#### Environments, Configurations
+* `config/`下に配置
+    * `application.rb`
+    * `database.yml`
+    * `secrets.yml`
+
+* [設定ファイル(config) - Railsドキュメント](http://railsdoc.com/config)
+
+#### Routing
+* `config/route.rb`に定義
+
+* [ルーティング(routes) - Railsドキュメント](http://railsdoc.com/routes)
+
+##### REST
+
+#### Controller
+* `app/controllers/`下に配置
+* コントローラは`ApplicationController`を継承する
+    * `ApplicationController`は`ActionController::Base`を継承する
+* `ApplicationController`には全アクション共通処理（ヘルパーとか）を書く
+
+* [コントローラ(controller) - Railsドキュメント](http://railsdoc.com/controller)
+
+#### ActiveRecord, Model
+* `app/models/`下に配置
+* モデルは`ActiveRecord::Base`を継承する
+
+* [モデル(model) - Railsドキュメント](http://railsdoc.com/model), メソッド一覧もココ
+    * CRUD関連
+        * `new/build`
+        * `save`
+        * `create`
+        * `find`
+        * `find_by`
+        * `where(COND, PARAMS)` - `COND`にはバインド変数`?`が使える
+        * `count`
+        * `order(SORT_COND)` - `SORT_COND`はSQLと同じように書ける。asc/descを省略したらasc
+        * `update`
+        * `destroy`
+    * リレーション関連
+        * `belongs_to`
+        * `has_many`
+        * `has_one`
+    * 便利メソッド
+        * `scope`
+
+##### Validations
+* [検証(validation) - Railsドキュメント](http://railsdoc.com/validation)
+
+##### Migrations
+* `db/migrates/`下に配置
+* マイグレーションは`ActiveRecord::Migration`を継承する
+
+* [マイグレーション(migration) - Railsドキュメント](http://railsdoc.com/migration)
+
+##### Associations
+
+#### View
+* `app/views/`下に配置
+* erb, haml, etc... でテンプレートを記述
+
+* [ビュー(view) - Railsドキュメント](http://railsdoc.com/view)
+
+#### Helper
+* `app/helpers/`下に配置
+* `module`として定義
+
+#### Asset Pipeline
+* `app/assets/`下に配置
+
++ [アセットパイプライン(Asset Pipeline) - Railsドキュメント](http://railsdoc.com/asset_pipeline)
+
+#### RSpec
+
+
+### 開発
+
+#### OAuth認証
+* Callback URLには`http://lvm.me:3000/auth/SERVICENAME/callback`といったURLを設定し、(画面遷移的には認証後ココに戻ってくるので)そこにcallback処理を実装する
+
+#### セッション管理
+* controllerの`session`オブジェクト
+* `reset_session`メソッド
+
+#### 色んなアクションに共通する事前/事後処理を定義したい
+* アクションコールバック - `before_action`, `after_action`
+
+
+#### viewの開発, asset pipeline
+
+
+
+#### i18n, タイムゾーン関連
+
+
+
+#### ユニットテストフレームワークを変える
+
+
+#### ロギングのカスタマイズ
+* `Rails.logger`
+* `inspect`
+* 出力先を変える
+* 出力フォーマットを変える
+* ログローテーション
+
+
+#### gemを追加したい
+
 
 ### インフラ・ミドル
 
@@ -70,41 +183,10 @@ ___railsでデファクトなAPサーバーって何なのか調べる___
 ##### Heroku
 
 
-### 開発
-
-#### OAuth認証
-* Callback URLには`http://lvm.me:3000/auth/SERVICENAME/callback`といったURLを設定し、(画面遷移的には認証後ココに戻ってくるので)そこにcallback処理を実装する
-
-#### セッション管理
-* `session`オブジェクト
-* `reset_session`メソッド
-
-#### 色んなアクションに共通する事前/事後処理を定義したい
-* アクションコールバック - `before_action`, `after_action`
-
-#### viewの開発, asset pipeline
-
-
-
-#### ユニットテストフレームワークを変える
-
-
-#### ロギングのカスタマイズ
-* `Rails.logger`
-* `inspect`
-* 出力先を変える
-* 出力フォーマットを変える
-* ログローテーション
-
-
-#### gemを追加したい
-
 
 ## 疑問点
 
 ### ActiveRecord, モデル
-[モデル(model) - Railsドキュメント](http://railsdoc.com/model)
-
 * [OK] `new`メソッドって何してる？
     * モデルオブジェクトを __生成__ するためのメソッド, DBに保存したければこの後に`save`を実行する
     * 生成・保存を一発でやるメソッドが `create`
@@ -120,17 +202,27 @@ ___railsでデファクトなAPサーバーって何なのか調べる___
         * が、これはActiveRecordオブジェクト経由での失敗時。クラスメソッドを呼んで失敗した場合は何処にも保存されない
 * `rails g model`はどういう時に行うもの？
     * 逆にどういう時なら`rails g scaffold`でも良いのか？
+* `rake db:create`を行うケースと行わないケースの違いは？
+    * `rake db:migrate`しか行わないケース有るよね
 
 ### routeとController
 * [パー本 p.69] `rails g model``rails g controller`した後に「ルーティング情報を削除してから定義」みたいな事書いてるけど、削除対象になるような記述が最初から無かった
 * [OK][パー本 p.179] `uninitialized constant SessionController`ってエラーで動かない
     * route.rbの`get '/auth/:provider/callback' => 'sessions#create'`, このコントローラ名を`sessions`ではなく`session`にtypoしてただけだった
+* `routes.rb`の`resouces`って具体的に何？他とどう違うの？
+* [OK][パー本 p.187] `current_user.created_events.build`の下りがいまいち理解できてない。`created_events`はUserモデルに has_many関連 として定義してるんだけど、`build`って何処でどういう処理として定義されてるメソッドなの？とか
+    * これだ！ [build - リファレンス - Railsドキュメント](http://railsdoc.com/references/build), モデルのメソッド。"モデルオブジェクトを生成する, saveメソッドなどを使って保存する"
+* [パー本 p.199] updateメソッド、`params[:id]`と`event_params`(実体はメソッドで`:event`ってパラメータを参照してる)の2つのパラメータを使ってるけど、これ複数パラメータってどうやって受け付けてるんだろ？
 
 
 ### view
 * [パー本 p.180] erbで使ってる`logout_path`って他の何処にも定義されていない変数(?)なんだけど、どうやって認識してるの？
-    * `route.rb`の`as`属性で定義した名前 + `_path` って形式？
-
+    * `route.rb`の`Prefix`名 + `_path` って形式？（に見える）
+    * "The Rails 4 Way" の p.49(2.4.1 Creating a Named Route) も合わせて読みたい
+* [パー本 p.188] `<%= msg %>`の部分でvimが"possibly useless use of a variable in void context"ってエラー吐くの何で？
+    * __エラー無視しても一応ちゃんと動いてる__
+* view(erb, html)のvimでの開発効率もうちょっとどうにかしたい
+* [パー本 p.201] `f.submit`で生成されるformタグのaction URLって勝手に良しなに動かしたいアクションを選んでくれてるの？？
 
 
 ### 漏洩や他社閲覧させたくない情報の管理について
@@ -151,6 +243,8 @@ ___railsでデファクトなAPサーバーって何なのか調べる___
     * `/log/*`になってるからっぽい。先頭の `/`が余計
     * railsのプロジェクトをgit commitするとき、rails newでデフォルト生成される`.gitignore`だけiginoreすりゃOK？
 * railsのエラー画面の下部のコンソールっぽいやつ何？何に使う？
+* `rails g HOGEHOGE` HOGEHOGEに何を使うかの選択基準って結局何なの？
+
 
 ## こんなツールが欲しい系
 * プロジェクト成果物のメトリクスを取るツール。モデル数とかビュー数とかetc

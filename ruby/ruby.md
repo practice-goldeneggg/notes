@@ -19,6 +19,15 @@
     * `||=` - __nilやfalseなら別途用意した値をセットする__ という用途に用いられる
         * `@a ||= generate_default_value` のような式を評価すると、変数 @a が真であるときには何もせず、@aが偽のときには generate_default_value メソッドを呼んでその戻り値でaを初期化
 
+### クラス, オブジェクト
+
+
+#### メソッド
+* クラスメソッド(javaで言うstatic)は`def CLASSNAME.METHOD`形式で定義する
+    * `def self.METHOD`とselfを使っても同意
+        * __こちらの方が主流ぽい__ (クラス名変更時とかリファクタリングが少なく済む)
+
+
 ### ブロック, yield, Proc (は: P.138, パ: P.095)
 * [[Ruby] ブロックとProcをちゃんと理解する - Qiita](http://qiita.com/kidachi_/items/15cfee9ec66804c3afd2)
     * それ単体では存在できず、メソッドの引数にしかなれない
@@ -70,6 +79,7 @@ end
 ```
 
 ### lambda
+
 
 
 ### 引数（メソッド、ブロック）

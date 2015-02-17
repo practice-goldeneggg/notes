@@ -168,3 +168,64 @@
         * `app/views/layouts/application.html.erb`
 * `flash[:notice]``<% if flash[:notice]` 文 - flashメッセージを表示する
 
+
+#### 2015-02-16
+
+##### その他
+* タイムゾーン設定, `config/application.rb` - `config.time_zone = 'Tokyo'` で日本時間
+* フォームのラベルやエラーメッセージのi18n対応
+    * `config/application.rb` - `config.i18n.default_locale = :ja` で日本語化
+    * `config/locales/ja.yml'に辞書データのyamlを配置`
+        * 辞書データは rails-i18n のリポジトリにまとめられている
+        * `curl -o config/locales/ja.yml -L https://raw.github.com/svenfuchs/rails-i18n/master/rails/locale/ja.yml`
+        * これとは別に独自辞書データも追加したい場合は、例えば`ar_ja.yml`のような別ファイルに定義すると管理しやすい
+    * 反映時は`rails s`再起動が必要っぽい
+    * (パラメータ内容とかで動的にlocaleを変更したい場合の例は "The Rails 4 Way"のp.378参照)
+* 現在日次の取得 = `Time.zone.now`
+* `rails g resource`コマンド
+
+* [Rails Hub情報局: Rails4に間に合うか、REPL付きエラー画面「Better Errors」がイイ感じ](http://el.jibun.atmarkit.co.jp/rails/2012/12/rails.html)
+    * Rackで動くアプリのエラー画面下部にREPLが表示される
+    * [Railsのweb-consoleについて | 日々雑記](http://y-yagi.tumblr.com/post/96428108880/rails-web-console)
+
+##### ActiveRecord
+* `A氏が作ったB案`みたいに、2TBL間のリレーションが存在するデータを取得したい場合、`user.RELATION.find(params[:id])`のように、一度`has_many`等で設定したリレーションを挟んでCRUDメソッドを呼ぶのが流儀
+
+##### Model
+* `validates COLUMN, VALIDATEs...` - バリデーション
+    * validate METHODNAME` - 複雑なバリデーションはメソッド化(2項目間の関連チェックとか)`
+        * 最後のsが無いの、紛らわしいので注意
+* `errors.add(COLUMN, MSG)` - バリデーションNG時等に対象項目にエラー（とメッセージ）を追加する
+* `has_many`
+
+
+##### Controller
+* `rails g resource` - `routes.rb`に`resources RESOURCENAME`形式でリソースが追加される
+* `params`変数 - リクエストパラメータ関連の処理を行うオブジェクト
+    * `params.require(NAME)` - 必須パラメータ指定
+        * `params.require(NAME).permit(COLUMNS..)` - NAMEパラメータ内のkey-valueのうち許可するkeyパラメータを指定
+* `session` - セッション情報
+    * ログイン状態を管理する処理とかで使う
+
+##### View
+* `form_for(MODEL, class: CLASS, role: ROLE) do |f| ...` - 指定したモデルの情報を元にformを作るためのヘルパー
+    * __viewで使用する際は`<%= form_for ... %>`と`<%= %>`構文で呼び出す__
+    * `f.label`
+    * `f.text_field`
+    * `f.datetime_select`
+    * `f.submit`
+        * `disable_with`オプション - 多重送信防止
+
+
+#### 2015-02-xx
+
+##### その他
+
+##### ActiveRecord
+
+##### Model
+
+##### Controller
+
+##### View
+
