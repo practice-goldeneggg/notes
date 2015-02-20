@@ -5,44 +5,47 @@
 
 ## とりあえずサクっと作りたい時にやること
 
+### アプリを新規作成する
 * `rails new APPNAME`
-* `cd APPNAME`
-* 機能概要を決める
-    * ルーティング仕様を決める
-        * __"何かを登録する" という機能の場合、登録用フォーム表示と登録処理は別にするのがパーフェクトrails流__
-            * `/kinou/new` - 登録フォーム表示(GET)
-            * `/kinou` - 登録(POST)
-        * 既存データ編集はPATCH/PUT, 削除はDELETE メソッドを受け付けるのがrails流っぽい
-    * コントローラ（とアクション）
-        * `bin/rails g controller CONTROLLERNAME ACTIONNAME` でコントローラ(とアクション)とビューを（とりあえず）生成する
-        * `config/route.rb`にルーティングを追加する
-* モデルを決める・設計する
-    * __マスタデータを他TBLに保持するfooID, barID の2つが主キーになるような別TBL__ を設計する際、railsのモデル流なのは下記のどちら？__
-        * fooID + barID がPKになるTBL
-        * 別TBL独自のID がPKになるTBL __***こっちっぽい***__
-            * __この場合削除は物理？論理？__
-    * `bin/rails g {scaffold,model,resource,etc...} MODELNAME COLUMN:TYPE...`
-        * `db/migrate`ディレクトリにmigrationファイルが生成される
+
+### ルーティング仕様を決める
+* __"何かを登録する" という機能の場合、登録用フォーム表示と登録処理は別にするのがパーフェクトrails流__
+    * `/kinou/new` - 登録フォーム表示(GET)
+    * `/kinou` - 登録(POST)
+* 既存データ編集はPATCH/PUT, 削除はDELETE メソッドを受け付けるのがrails流っぽい
+
+### コントローラ（とアクション）を作成する
+* `bin/rails g controller CONTROLLERNAME ACTIONNAME` でコントローラ(とアクション)とビューを（とりあえず）生成する
+* `config/route.rb`にルーティングを追加する
+
+* 上記をまとめてやってくれる（ついでにモデルとマイグレーションの生成も）が __resource__ 、`bin/rails g resource ...`
+* さらにさらにviewまで生成して、コマンド一発で簡易アプリが形になっちゃうのが __scaffold__ 、`bin/rails g scaffold ...`
+
+### モデル、マイグレーションファイルを作成する
+* `bin/rails g model MODELNAME COLUMN:TYPE...`
+    * `db/migrate`ディレクトリにmigrationファイルが生成される
         * テーブル名は `MODELNAMEs` とモデル名に s を付けたもの
-        * `app/model`下にモデルクラスが作成される
-        * てか何か scaffold が固まって動かなくなり始めた
-            * [AWS(EC2)+Rails+MySQLでrails generate が動かない？ - To create, To entertain](http://tkoyama1988.hatenablog.com/entry/2014/06/08/192614)
-            * [【Ruby On Rails】　「rails generate」が動かない | approad](http://app.road.jp.net/?p=1679)
-            * `spring`が悪さしてたっぽい（ __TODO springって何ぞやから詳しく調べる__ )
-                * `bin/spring stop` -> `bin/spring` したらOK
-        * migrationファイルに必要に応じてindexや制約(null制約とか)を追加する
-    * `bin/rake db:create`
-        * DBを作成するんだと思うんだけど、何か`db/development.sqlite3 already exists`って出た
-            * __このrakeタスクで何が実行されてるのか詳しく調べる__
-    * `bin/rake db:migrate`
-    * `sqlite3 db/development.sqlite3` <- DB確認
-    * `bin/rake db:migrate:status` <- migration適用/未適用の確認
-    * `app/model/MODEL.rb`に必要に応じてバリデーションやビジネスロジックメソッド等を追加する
-* ビューをbootstrapとかで味気有るものにする
+    * `app/model`下にモデルクラスが作成される
+* migrationファイルに必要に応じてindexや制約(null制約とか)を追加する
+* `bin/rake db:create` でDBを作成する
+* `bin/rake db:migrate` - migaration適用
+    * `bin/rake db:rollback` - migration戻し
+        * __rollbackするときは、migrationファイルをmigrate実行時と同じ状態にしておかないとエラーになるので注意__
+* もし既存テーブルの修正を行いたい場合は、`bin/rails g migration NAME`して修正用migrationを作成し、`bin/rake db:migrate`する
+    * `up`メソッド - 適用前の状態を明示する
+    * `down`メソッド - 適用後の状態を明示する
+* `bin/rake db:migrate:status` <- migration適用/未適用の確認
+* `sqlite3 db/development.sqlite3` <- DB確認
+* `app/model/MODEL.rb`に必要に応じてバリデーションやビジネスロジックメソッド等を追加する
+
+### ビューを作成する
+* bootstrapとかで味気有るものにする
     * 公式サイトから落としてきて`vendor/assets/{stylesheets,javascripts}`配下へ展開
     * 展開したファイルを asset pipeline のリストに追加
+
+### 動作確認
 * `bin/rails s` <- 起動
-* http://localhost:3000/tasks へアクセス
+* http://localhost:3000/APP へアクセス
 * http://localhost:3000/rails/info/routes へアクセス <- ルーティング情報確認
     * http://localhost:3000/rails/info へアクセスしても同様( /routes へリダイレクトされる)
     * `bin/rake routes`コマンドでも確認可能
@@ -163,6 +166,13 @@ __railsでデファクトなAPサーバーって何なのか調べる__
 
 #### gemを追加したい
 
+#### vim
+* [tpope/vim-rails](https://github.com/tpope/vim-rails)
+
+#### （やりたい）
+* `bin/rake routes`を __route.rbの変更を検知しつつ常時実行__ したい
+
+
 
 ### インフラ・ミドル
 
@@ -186,7 +196,11 @@ __railsでデファクトなAPサーバーって何なのか調べる__
 
 ## 疑問点
 
-### ActiveRecord, モデル
+### ActiveRecord, Model
+* [OK] __マスタデータを他TBLに保持するfooID, barID の2つが主キーになるような別TBL__ を設計する際、railsのモデル流なのは下記のどちら？__
+    * fooID + barID がPKになるTBL
+    * 別TBL独自のID がPKになるTBL __***こっちっぽい***__
+        * __この場合削除は物理？論理？__
 * [OK] `new`メソッドって何してる？
     * モデルオブジェクトを __生成__ するためのメソッド, DBに保存したければこの後に`save`を実行する
     * 生成・保存を一発でやるメソッドが `create`
@@ -204,6 +218,19 @@ __railsでデファクトなAPサーバーって何なのか調べる__
     * 逆にどういう時なら`rails g scaffold`でも良いのか？
 * `rake db:create`を行うケースと行わないケースの違いは？
     * `rake db:migrate`しか行わないケース有るよね
+* [OK] てか何か scaffold が固まって動かなくなり始めた
+    * [AWS(EC2)+Rails+MySQLでrails generate が動かない？ - To create, To entertain](http://tkoyama1988.hatenablog.com/entry/2014/06/08/192614)
+    * [【Ruby On Rails】　「rails generate」が動かない | approad](http://app.road.jp.net/?p=1679)
+    * `spring`が悪さしてたっぽい（ __TODO springって何ぞやから詳しく調べる__ )
+        * `bin/spring stop` -> `bin/spring` したらOK
+* `bin/rake db:create` でDBを作成する時に何か`db/development.sqlite3 already exists`ってエラーが出た
+    * __このrakeタスクで何が実行されてるのか詳しく調べる__
+* [OK][パー本 p.204] commentは`allow_blank: true`じゃなくて`null: true`じゃダメなの？
+    * NULLを許可するか？と、空文字を許容するか？、を何かしらの理由で分けて考えてる？
+        * 空文字じゃなくてNULLにすると、viewに`<NULL>`みたいに表示されちゃうとか？
+        * まあ __MySQLだとNULLと空文字は扱い違う__ し、`NOT NULL DEFAULT ''`とかやるし妥当か
+* 「ユーザーがあるイベントに参加済だったら、参加するボタンを非表示に」って事をやりたい場合、参加済かどうかを判定する処理を何処に・どう書くのがrails流なのかがよく分からない
+* [パー本 p.208] ステータスコードを返した後の処理を何でjsで書くのか？（そもそもこのjs作成をサボると、送信ボタン押下してもモーダルが閉じなかったり挙動が変になるが）
 
 ### routeとController
 * [パー本 p.69] `rails g model``rails g controller`した後に「ルーティング情報を削除してから定義」みたいな事書いてるけど、削除対象になるような記述が最初から無かった
@@ -213,6 +240,9 @@ __railsでデファクトなAPサーバーって何なのか調べる__
 * [OK][パー本 p.187] `current_user.created_events.build`の下りがいまいち理解できてない。`created_events`はUserモデルに has_many関連 として定義してるんだけど、`build`って何処でどういう処理として定義されてるメソッドなの？とか
     * これだ！ [build - リファレンス - Railsドキュメント](http://railsdoc.com/references/build), モデルのメソッド。"モデルオブジェクトを生成する, saveメソッドなどを使って保存する"
 * [パー本 p.199] updateメソッド、`params[:id]`と`event_params`(実体はメソッドで`:event`ってパラメータを参照してる)の2つのパラメータを使ってるけど、これ複数パラメータってどうやって受け付けてるんだろ？
+* [OK][パー本 p.204] create_tickets.rbの生成のされ方が本と異なる(`add_foreign_key`が定義されてる)
+    * [rails/4_2_release_notes.md at master · rails/rails](https://github.com/rails/rails/blob/master/guides/source/4_2_release_notes.md) の __Foreign Key Support__ に書いてあった
+* [パー本 p.204] リスト6.38、何でadd_indexを2つ書いてるの？（カラムの並びに意味がある？)
 
 
 ### view

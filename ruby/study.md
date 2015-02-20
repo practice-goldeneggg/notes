@@ -217,6 +217,27 @@
         * `disable_with`オプション - 多重送信防止
 
 
+#### 2015-02-18
+
+##### その他
+
+##### ActiveRecord
+* migrationの適用・戻し・修正・確認のやり方
+* `belongs_to`(多側)と`has_many`(一側)はワンセットで定義
+    * `has_many`で指定する名前は複数形にするのが流儀
+
+##### Model
+* `include`メソッド
+* N+1 問題
+
+
+##### Controller
+
+##### View
+* モーダル表示 with bootstrap
+    * モーダルでの処理後、__javascriptで__ レスポンス判定と画面描画を行う
+
+
 #### 2015-02-xx
 
 ##### その他
