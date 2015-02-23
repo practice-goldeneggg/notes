@@ -27,6 +27,88 @@
     * `def self.METHOD`とselfを使っても同意
         * __こちらの方が主流ぽい__ (クラス名変更時とかリファクタリングが少なく済む)
 
+### モジュール
+* __インスタンス化出来ないクラス__
+    * ClassクラスはModuleクラスのサブクラス
+* 2つの役割 = __mixin と 名前空間__
+
+#### mixin
+* __既存のクラスを拡張する時、拡張部分をモジュールとしてまとめておく という流儀がある__
+* 2種類のメソッドを定義可能
+    * モジュールメソッド - クラスで言うところのクラスメソッド(like static), `def self.method_name`で定義
+    * (通常の)メソッド - __mixin用のメソッド__ `def method_name`で定義
+* mixinしたメソッドを __インスタンスメソッドで__ 呼びたければ`include`
+* mixinしたメソッドを __クラスメソッドで__ 呼びたければ`extend`
+
+```ruby
+# foo_module.rb
+Module FooModule
+  def self.module_method_name
+  end
+
+  def method_name
+  end
+end
+```
+
+```ruby
+require "foo_module" # これ大事!!
+
+class OtherClass
+  include FooModule
+end
+OtherClass.new.method_name # これで呼べる
+
+class OtherClass
+  extend FooModule
+end
+
+OtherClass.method_name # これで呼べる
+```
+
+* __includeでもクラスメソッド形式で呼び出したい場合__ は、モジュールをネスト定義してその中にメソッドを定義する(よく見るのは`module ClassMethods`というモジュールを定義する形式)
+
+```ruby
+# your_module.rb
+module YourModule
+  def self.included(base)
+    base.extend(ClassMethods)
+  end
+ 
+  module ClassMethods
+    def hello
+      puts 'Hello!'
+    end
+  end
+ 
+  def bye
+    puts 'Bye!'
+  end
+end
+```
+```ruby
+require "your_module"
+
+class YourClass
+  include YourModule
+end
+
+
+y = YourClass.new
+y.bye
+YourClass.hello
+```
+
+
+#### 名前空間
+
+#### 処理の取り込み mixin
+[Rubyにおけるrequireとincludeとextend - yamazのRails日記 - Rubyist](http://rubyist.g.hatena.ne.jp/yamaz/20060722)
+
+* `extend`
+* `include`
+* `autoload`
+
 
 ### ブロック, yield, Proc (は: P.138, パ: P.095)
 * [[Ruby] ブロックとProcをちゃんと理解する - Qiita](http://qiita.com/kidachi_/items/15cfee9ec66804c3afd2)
@@ -78,6 +160,13 @@ def magic_five_box(after_input, someProc)
 end
 ```
 
+### 例外処理begin...rescue...ensure
+* `begin` = try
+* `rescue` = catch
+* `ensure` = finally
+* `else` = 例外が一切発生しなかった場合に実行されるブロック
+
+
 ### lambda
 
 
@@ -89,6 +178,30 @@ end
 #### キーワード引数
 * [若手エンジニア／初心者のためのRuby 2.1入門（8）：Rubyの面白さを理解するためのメソッド、ブロック、Proc、lambda、クロージャの基本 (2/3) - ＠IT](http://www.atmarkit.co.jp/ait/articles/1409/29/news035_2.html)
 * __キーワードに続けて:（コロン）を書き、その後にデフォルト値を続ける__
+
+### %記法
+[%記法](http://docs.ruby-lang.org/ja/2.2.0/doc/spec=2fliteral.html#percent)
+    * `%w(foo bar baz)` - `['foo', 'bar', 'baz']` と同義
+
+## ライブラリ
+* pry
+* itamae
+* omniauth
+* devise
+* rspec-given
+* rubocop - syntaxチェッカー
+
+### Bundler
+* [Gem - Bundler概要 - Qiita](http://qiita.com/hisonl/items/162f70e612e8e96dba50)
+
+## ブクマ, ドキュメント
+
+
+### ローカルでドキュメント閲覧
+* `gem server`で`localhost:8808`にローカルドキュメントサーバが立つ
+    * インストールしているgemに一覧が確認できる
+
+
 
 ## 疑問点
 
